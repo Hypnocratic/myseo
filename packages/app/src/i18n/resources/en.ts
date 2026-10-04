@@ -1209,7 +1209,7 @@ export const en = {
     },
     actions: {
       addProject: "Add project",
-      newWorkspace: "New workspace",
+      newWorkspace: "New Workspace",
       hosts: "Hosts",
       settings: "Settings",
       closeSidebar: "Close sidebar",
