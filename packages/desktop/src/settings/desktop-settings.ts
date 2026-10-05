@@ -35,7 +35,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
     playSound: true,
   },
   daemon: {
-    manageBuiltInDaemon: true,
+    manageBuiltInDaemon: false,
     keepRunningAfterQuit: false,
   },
 };
@@ -221,7 +221,10 @@ function coerceDocument(input: unknown): PersistedDesktopSettingsDocument {
         keepRunningAfterQuit: DEFAULT_DESKTOP_SETTINGS.daemon.keepRunningAfterQuit,
       },
     },
-    migrations: { ...document.migrations, daemonStopOnQuitDefaultApplied: true },
+    migrations: {
+      ...document.migrations,
+      daemonStopOnQuitDefaultApplied: true,
+    },
   };
 }
 
