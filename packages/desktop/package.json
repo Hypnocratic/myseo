@@ -2,7 +2,7 @@
   "name": "@getpaseo/desktop",
   "version": "0.10.3",
   "private": true,
-  "description": "Paseo desktop app (Electron wrapper)",
+  "description": "Myseo desktop app (Electron wrapper)",
   "homepage": "https://paseo.sh",
   "license": "Apache-2.0",
   "author": {
@@ -46,5 +46,5 @@
     "vitest": "^4.1.6",
     "wait-on": "8.0.5"
   },
-  "desktopName": "Paseo.desktop"
+  "desktopName": "Myseo.desktop"
 }
