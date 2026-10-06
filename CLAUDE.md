@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Paseo is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
+Myseo is a personal fork of Paseo (mobile app for monitoring and controlling your local AI coding agents from anywhere). Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
 
 **Supported agents:** Claude Code, Codex, GitHub Copilot, OpenCode, and Pi.
 
@@ -105,6 +105,22 @@ npm run format:check                 # Check formatting without writing
 Repo dev commands use checkout-local state by default. In this checkout, `PASEO_HOME` resolves to `.dev/paseo-home`, and `npm run cli -- ...` targets that same dev home automatically. The packaged desktop app and production-style daemon keep using `~/.paseo` on port `6767`.
 
 See [docs/development.md](docs/development.md) for full setup, build sync requirements, and debugging.
+
+## Repository facts
+
+This repo is <https://www.github.com/Hypnocratic/myseo>, a personal fork of Paseo.
+
+- **All development happens on the `dev` branch.** Agents commit only to `dev`.
+- **Agents don't push or merge to `origin` or `main` automatically.** Pushing
+  commits to `origin dev` and merging `dev` into `main` require explicit user
+  permission each time.
+- **Commit messages use conventional commits:** `type(scope): lowercase
+imperative subject` — one line, no body unless the change needs explaining
+  (e.g. `feat(desktop): customize Myseo branding and remote daemon mode`).
+- **Upstream syncs are user-discretion only.** The `upstream` remote
+  (`getpaseo/paseo`) exists for keeping the fork current. Never fetch, merge,
+  or rebase from upstream on your own initiative — the user decides when and how
+  to sync, and does it only with explicit instruction.
 
 ## Release branches
 

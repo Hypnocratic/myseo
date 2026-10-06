@@ -1,5 +1,16 @@
 # Contributing to Paseo
 
+> **⚠️ Fork notice** — this repository is **Myseo**, a personal fork of
+> [Paseo](https://github.com/getpaseo/paseo). The contribution rules below are the
+> **upstream project's** rules and mostly do not apply here. On this fork:
+>
+> - All development happens on the `dev` branch; agents commit only to `dev`.
+> - Agents don't push or merge to `origin` or `main` automatically; pushing to
+>   `origin dev` and merging to `main` require explicit user permission.
+> - Do not open issues, discussions, or pull requests against the upstream repo.
+
+---
+
 This guide is here to save us both time and help you find a useful way to contribute.
 
 Paseo grows through bug reports, testing, workflow discussions, plugins, documentation, and people helping each other. The sections below explain where each contribution belongs and what to expect.
