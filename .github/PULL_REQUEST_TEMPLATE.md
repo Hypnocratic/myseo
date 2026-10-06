@@ -2,6 +2,9 @@
 Please follow this template. The PR template applies whether you opened the PR via the web UI, `gh pr create`, or any other tool.
 
 You MUST read CONTRIBUTING.md before sending a PR.
+
+Note: this repo is a personal fork of Paseo. All PRs target the `dev` branch —
+never `main`.
 -->
 
 ### Linked issue

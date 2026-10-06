@@ -4,6 +4,11 @@
 
 <h1 align="center">Paseo</h1>
 
+> **⚠️ Personal fork notice** — this repository is **Myseo**, a personal fork of
+> [Paseo](https://github.com/getpaseo/paseo). It is not affiliated with, endorsed by,
+> or maintained by the upstream Paseo project. Issues and pull requests on this repo
+> concern the fork only; all development happens on the `dev` branch.
+
 <p align="center">
   <a href="README.md">English</a> ·
   <a href="README.zh-CN.md">简体中文</a> ·
