@@ -83,7 +83,8 @@ describe("desktop-settings", () => {
       releaseChannel: "stable",
       notifications: { playSound: true },
       daemon: {
-        manageBuiltInDaemon: true,
+        // Myseo fork: remote daemon mode flips the built-in daemon default.
+        manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,
       },
     });
@@ -105,7 +106,8 @@ describe("desktop-settings", () => {
       releaseChannel: "beta",
       notifications: { playSound: true },
       daemon: {
-        manageBuiltInDaemon: true,
+        // Myseo fork: remote daemon mode flips the built-in daemon default.
+        manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,
       },
     });
