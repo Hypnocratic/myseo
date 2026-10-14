@@ -7,7 +7,9 @@ import { ScreenHeader } from "./screen-header";
 import { ScreenTitle } from "./screen-title";
 import { HeaderToggleButton, headerIconSlotStyle } from "./header-toggle-button";
 import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
-import { useIsCompactFormFactor } from "@/constants/layout";
+import { getIsElectronRuntime, useIsCompactFormFactor } from "@/constants/layout";
+import { useKeyboardShortcutOverrides } from "@/hooks/use-keyboard-shortcut-overrides";
+import { resolveShortcutKeysForAction } from "@/keyboard/keyboard-shortcuts";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { useHasWindowChromeObstruction, useOwnsWindowChromeCorner } from "@/utils/desktop-window";
 import { iconButtonChromeGlyphSize } from "@/components/ui/icon-button-chrome";
@@ -60,9 +62,17 @@ function SidebarMenuToggleButton({
   const { t } = useTranslation();
   const isOpen = usePanelStore((state) => selectIsAgentListOpen(state, { isCompact: isMobile }));
   const toggleAgentListForLayout = usePanelStore((state) => state.toggleAgentListForLayout);
-  const toggleShortcutKeys = useMemo(
-    () => (getShortcutOs() === "mac" ? ["mod", "B"] : ["mod", "."]),
+  // Resolved, not hardcoded: the tooltip must show the keys that actually fire,
+  // including a user override (or nothing, if unassigned) from Settings.
+  const { overrides } = useKeyboardShortcutOverrides();
+  const shortcutPlatform = useMemo(
+    () => ({ isMac: getShortcutOs() === "mac", isDesktop: getIsElectronRuntime() }),
     [],
+  );
+  const toggleShortcutKeys = useMemo(
+    () =>
+      resolveShortcutKeysForAction("toggle-left-sidebar", overrides, shortcutPlatform)?.[0] ?? [],
+    [overrides, shortcutPlatform],
   );
 
   const handlePress = useCallback(() => {
