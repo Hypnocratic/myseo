@@ -57,11 +57,12 @@ import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
 import {
   MIN_INPUT_HEIGHT,
-  applyUserCeiling,
+  clampManualHeight,
   resolveDefaultComposerMaxHeight,
-  useComposerCeilingStore,
-} from "./ceiling";
+  useComposerManualHeightStore,
+} from "./composer-height";
 import { useComposerHeight } from "./height";
+import type { ComposerHeightResult } from "./height.types";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
 import {
@@ -984,6 +985,26 @@ function computeIsDictationStartEnabled(
   return (isReadyForDictation ?? isConnected) && !disabled;
 }
 
+// Manual mode fixes the box height: no content measurement, no shrink when text
+// is deleted. The window clamp is applied here, at render time, so a shrunk
+// window clamps visually while the stored height keeps the user's number for
+// when it grows back.
+function resolveComposerHeightResult(args: {
+  measured: ComposerHeightResult;
+  manualHeight: number | null;
+  windowHeight: number;
+  minInputHeight: number;
+}): ComposerHeightResult {
+  const { measured, manualHeight, windowHeight, minInputHeight } = args;
+  if (manualHeight === null) return measured;
+  const height = clampManualHeight({ value: manualHeight, windowHeight, minInputHeight });
+  return {
+    mode: "manual",
+    style: { height, minHeight: minInputHeight },
+    scrollEnabled: true,
+  };
+}
+
 function isTextAreaLike(v: unknown): v is TextAreaHandle {
   return typeof v === "object" && v !== null && "scrollHeight" in v;
 }
@@ -1186,13 +1207,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const { t } = useTranslation();
     const isCompact = useIsCompactFormFactor();
     const { height: windowHeight } = useWindowDimensions();
-    const userCeiling = useComposerCeilingStore((state) => state.ceiling);
-    const maxInputHeight = applyUserCeiling({
-      defaultMax: resolveDefaultComposerMaxHeight(windowHeight),
-      userCeiling,
-      windowHeight,
-      minInputHeight: MIN_INPUT_HEIGHT,
-    });
+    const manualHeight = useComposerManualHeightStore((state) => state.height);
+    const setManualComposerHeight = useComposerManualHeightStore((state) => state.setHeight);
     const buttonIconSize = isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
     const toast = useToast();
     const voice = useVoiceOptional();
@@ -1214,11 +1230,17 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const appliedTextReplacementKeyRef = useRef(textReplacement.key);
     const webTextareaRef = useRef<HTMLElement | null>(null);
     const getLiveText = useCallback(() => valueRef.current, []);
-    const composerHeight = useComposerHeight({
+    const measuredComposerHeightResult = useComposerHeight({
       getText: getLiveText,
       textareaRef: webTextareaRef,
       minHeight: MIN_INPUT_HEIGHT,
-      maxHeight: maxInputHeight,
+      maxHeight: resolveDefaultComposerMaxHeight(windowHeight),
+    });
+    const composerHeight = resolveComposerHeightResult({
+      measured: measuredComposerHeightResult,
+      manualHeight,
+      windowHeight,
+      minInputHeight: MIN_INPUT_HEIGHT,
     });
     const { style: composerHeightStyle, scrollEnabled: isComposerScrollEnabled } = composerHeight;
     const measuredComposerHeight = composerHeight.mode === "measured" ? composerHeight : undefined;
@@ -1502,7 +1524,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
     const minimizeInputHeight = useCallback(() => {
       resetComposerHeight?.();
-    }, [resetComposerHeight]);
+      setManualComposerHeight(null);
+    }, [resetComposerHeight, setManualComposerHeight]);
 
     const handleSendMessage = useCallback(() => {
       const liveValue = textInputRef.current?.getText() ?? valueRef.current;
