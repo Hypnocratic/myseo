@@ -9,14 +9,6 @@ import {
 } from "./ceiling";
 
 const ZONE_HEIGHT = 10;
-const GRIP_WIDTH = 10;
-const GRIP_HEIGHT = 10;
-// RN's CursorValue only types 'auto' | 'pointer'; directional cursors need a cast
-// (same as resize-handle.tsx).
-const ZONE_POINTER_STYLE = {
-  cursor: "ns-resize",
-  touchAction: "none",
-} as object;
 
 interface DragStart {
   pointerId: number;
@@ -25,18 +17,16 @@ interface DragStart {
 }
 
 /**
- * Full-width drag zone across the composer's top edge. Dragging adjusts the
- * session-global composer ceiling: the max height the input grows to before it
- * scrolls. The grip glyph at the top-right is the visual affordance.
+ * Full-width drag zone across the composer card's top edge. Dragging adjusts
+ * the session-global composer ceiling: the max height the input grows to
+ * before it scrolls. The ns-resize cursor is the affordance.
  */
 export function ComposerResizeZone() {
   const { height: windowHeight } = useWindowDimensions();
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const dragStartRef = useRef<DragStart | null>(null);
   const windowHeightRef = useRef(windowHeight);
   windowHeightRef.current = windowHeight;
-  const highlighted = isDragging || isHovered;
 
   useEffect(() => {
     if (!isDragging) return;
@@ -82,14 +72,18 @@ export function ComposerResizeZone() {
   const startDrag = useCallback((event: RNPointerEvent) => {
     const zoneElement = event.currentTarget as unknown as HTMLElement | null;
     const pointerId = event.nativeEvent.pointerId;
+    // Start from the composer's current visual height, not the stored ceiling:
+    // when the text fits below the ceiling the two differ, and starting from
+    // the ceiling adds a dead band before the box visibly responds.
+    const cardHeight = zoneElement?.parentElement?.clientHeight ?? 0;
     dragStartRef.current = {
       pointerId,
       pointerY: event.nativeEvent.clientY,
-      // A drag from the default height starts at the default ceiling so the
-      // first upward move grows past it.
       startCeiling:
-        useComposerCeilingStore.getState().ceiling ??
-        resolveDefaultComposerMaxHeight(windowHeightRef.current),
+        cardHeight > 0
+          ? cardHeight
+          : (useComposerCeilingStore.getState().ceiling ??
+            resolveDefaultComposerMaxHeight(windowHeightRef.current)),
     };
     setIsDragging(true);
     document.body.style.cursor = "ns-resize";
@@ -98,26 +92,23 @@ export function ComposerResizeZone() {
     zoneElement?.setPointerCapture?.(pointerId);
   }, []);
 
-  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
-  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
-
   return (
     <View
       testID="composer-resize-zone"
       style={[styles.zone, ZONE_POINTER_STYLE]}
       onPointerDown={startDrag}
-      onPointerEnter={handlePointerEnter}
-      onPointerLeave={handlePointerLeave}
-    >
-      <View style={styles.grip}>
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 0 }]} />
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 5 }]} />
-      </View>
-    </View>
+    />
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
+// RN's CursorValue only types 'auto' | 'pointer'; directional cursors need a cast
+// (same as resize-handle.tsx).
+const ZONE_POINTER_STYLE = {
+  cursor: "ns-resize",
+  touchAction: "none",
+} as object;
+
+const styles = StyleSheet.create({
   zone: {
     position: "absolute",
     top: 0,
@@ -126,24 +117,4 @@ const styles = StyleSheet.create((theme) => ({
     height: ZONE_HEIGHT,
     zIndex: 10,
   },
-  grip: {
-    position: "absolute",
-    right: theme.spacing[2],
-    top: 0,
-    width: GRIP_WIDTH,
-    height: GRIP_HEIGHT,
-  },
-  line: {
-    position: "absolute",
-    left: 0,
-    width: GRIP_WIDTH,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: theme.colors.foregroundMuted,
-    // 45deg tilts the right end down (\\), matching the composer's top-right corner.
-    transform: [{ rotate: "45deg" }],
-  },
-  lineHighlighted: {
-    backgroundColor: theme.colors.accent,
-  },
-}));
+});
