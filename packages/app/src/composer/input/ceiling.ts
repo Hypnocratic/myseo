@@ -10,13 +10,17 @@ export const MIN_INPUT_HEIGHT_MOBILE = 30;
 export const MIN_INPUT_HEIGHT_DESKTOP = 46;
 export const MIN_INPUT_HEIGHT = isWeb ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
 
+function isValidWindowHeight(windowHeight: number): boolean {
+  return Number.isFinite(windowHeight) && windowHeight > 0;
+}
+
 export function resolveDefaultComposerMaxHeight(windowHeight: number): number {
-  if (!Number.isFinite(windowHeight) || windowHeight <= 0) return DEFAULT_MAX_INPUT_HEIGHT;
+  if (!isValidWindowHeight(windowHeight)) return DEFAULT_MAX_INPUT_HEIGHT;
   return Math.max(DEFAULT_MAX_INPUT_HEIGHT, Math.floor(windowHeight * DEFAULT_MAX_VIEWPORT_RATIO));
 }
 
 function resolveCeilingViewportMax(windowHeight: number): number | null {
-  if (!Number.isFinite(windowHeight) || windowHeight <= 0) return null;
+  if (!isValidWindowHeight(windowHeight)) return null;
   return Math.floor(windowHeight * CEILING_VIEWPORT_RATIO);
 }
 
