@@ -2360,7 +2360,6 @@ function ComposerContentImpl({
         isMessageInputFocused={isMessageInputFocused}
       />
       <View style={animatedStaticStyles.container}>
-        <ComposerResizeZone />
         <AttachmentLightbox source={lightboxSource} onClose={handleLightboxClose} />
         {/* Input area */}
         <View style={inputAreaContainerStyle}>
@@ -2369,6 +2368,9 @@ function ComposerContentImpl({
             {sendErrorNode}
 
             <View ref={messageInputContainerRef} style={styles.messageInputContainer}>
+              {/* Drag zone anchored to the input card's top edge so the grip glyph
+                  sits in the card's top-right corner. */}
+              <ComposerResizeZone />
               <ComposerAutocompleteBinding
                 text={textSource}
                 cursor={cursor}

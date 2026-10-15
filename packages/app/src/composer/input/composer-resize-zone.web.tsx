@@ -9,7 +9,7 @@ import {
 } from "./ceiling";
 
 const ZONE_HEIGHT = 10;
-const GRIP_WIDTH = 9;
+const GRIP_WIDTH = 10;
 const GRIP_HEIGHT = 10;
 // RN's CursorValue only types 'auto' | 'pointer'; directional cursors need a cast
 // (same as resize-handle.tsx).
@@ -111,7 +111,7 @@ export function ComposerResizeZone() {
     >
       <View style={styles.grip}>
         <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 0 }]} />
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 8 }]} />
+        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 5 }]} />
       </View>
     </View>
   );
@@ -137,10 +137,11 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     left: 0,
     width: GRIP_WIDTH,
-    height: 1,
+    height: 2,
     borderRadius: 1,
-    backgroundColor: theme.colors.border,
-    transform: [{ rotate: "-45deg" }],
+    backgroundColor: theme.colors.foregroundMuted,
+    // 45deg tilts the right end down (\\), matching the composer's top-right corner.
+    transform: [{ rotate: "45deg" }],
   },
   lineHighlighted: {
     backgroundColor: theme.colors.accent,
