@@ -9,8 +9,14 @@ import {
 } from "./ceiling";
 
 const ZONE_HEIGHT = 10;
-const GRIP_WIDTH = 12;
-const GRIP_HEIGHT = 6;
+const GRIP_WIDTH = 9;
+const GRIP_HEIGHT = 10;
+// RN's CursorValue only types 'auto' | 'pointer'; directional cursors need a cast
+// (same as resize-handle.tsx).
+const ZONE_POINTER_STYLE = {
+  cursor: "ns-resize",
+  touchAction: "none",
+} as object;
 
 interface DragStart {
   pointerId: number;
@@ -98,14 +104,14 @@ export function ComposerResizeZone() {
   return (
     <View
       testID="composer-resize-zone"
-      style={[styles.zone, { cursor: "ns-resize", touchAction: "none" } as object]}
+      style={[styles.zone, ZONE_POINTER_STYLE]}
       onPointerDown={startDrag}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >
       <View style={styles.grip}>
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 1 }]} />
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 4 }]} />
+        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 0 }]} />
+        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 8 }]} />
       </View>
     </View>
   );
@@ -123,7 +129,7 @@ const styles = StyleSheet.create((theme) => ({
   grip: {
     position: "absolute",
     right: theme.spacing[2],
-    top: 2,
+    top: 0,
     width: GRIP_WIDTH,
     height: GRIP_HEIGHT,
   },
