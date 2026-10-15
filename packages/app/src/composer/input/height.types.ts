@@ -12,9 +12,4 @@ export type ComposerHeightResult =
       scrollEnabled: boolean;
       onTextChange: (previousText: string, nextText: string) => void;
       reset: () => void;
-    }
-  | {
-      mode: "manual";
-      style: TextStyle;
-      scrollEnabled: true;
     };

@@ -3,13 +3,13 @@ import { View, type PointerEvent as RNPointerEvent, useWindowDimensions } from "
 import { StyleSheet } from "react-native-unistyles";
 import {
   MIN_INPUT_HEIGHT,
-  dragManualHeight,
+  dragCeiling,
   resolveDefaultComposerMaxHeight,
-  useComposerManualHeightStore,
-} from "./composer-height";
+  useComposerCeilingStore,
+} from "./ceiling";
 
 const ZONE_HEIGHT = 10;
-const GRIP_WIDTH = 10;
+const GRIP_WIDTH = 9;
 const GRIP_HEIGHT = 10;
 // RN's CursorValue only types 'auto' | 'pointer'; directional cursors need a cast
 // (same as resize-handle.tsx).
@@ -21,14 +21,13 @@ const ZONE_POINTER_STYLE = {
 interface DragStart {
   pointerId: number;
   pointerY: number;
-  startHeight: number;
+  startCeiling: number;
 }
 
 /**
- * Full-width drag zone across the composer's top edge. Dragging sets the
- * session-global manual composer height: the box follows the pointer 1:1,
- * growing past its text or compressing below it. The grip glyph at the
- * top-right is the visual affordance.
+ * Full-width drag zone across the composer's top edge. Dragging adjusts the
+ * session-global composer ceiling: the max height the input grows to before it
+ * scrolls. The grip glyph at the top-right is the visual affordance.
  */
 export function ComposerResizeZone() {
   const { height: windowHeight } = useWindowDimensions();
@@ -46,9 +45,9 @@ export function ComposerResizeZone() {
       const dragStart = dragStartRef.current;
       if (!dragStart || moveEvent.pointerId !== dragStart.pointerId) return;
       moveEvent.preventDefault();
-      useComposerManualHeightStore.getState().setHeight(
-        dragManualHeight({
-          startHeight: dragStart.startHeight,
+      useComposerCeilingStore.getState().setCeiling(
+        dragCeiling({
+          startCeiling: dragStart.startCeiling,
           startY: dragStart.pointerY,
           currentY: moveEvent.clientY,
           windowHeight: windowHeightRef.current,
@@ -83,16 +82,14 @@ export function ComposerResizeZone() {
   const startDrag = useCallback((event: RNPointerEvent) => {
     const zoneElement = event.currentTarget as unknown as HTMLElement | null;
     const pointerId = event.nativeEvent.pointerId;
-    // Start from the composer's current visual height so the box tracks the
-    // pointer 1:1 from the first pixel, with no dead band.
-    const containerHeight = zoneElement?.parentElement?.clientHeight ?? 0;
     dragStartRef.current = {
       pointerId,
       pointerY: event.nativeEvent.clientY,
-      startHeight:
-        containerHeight > 0
-          ? containerHeight
-          : resolveDefaultComposerMaxHeight(windowHeightRef.current),
+      // A drag from the default height starts at the default ceiling so the
+      // first upward move grows past it.
+      startCeiling:
+        useComposerCeilingStore.getState().ceiling ??
+        resolveDefaultComposerMaxHeight(windowHeightRef.current),
     };
     setIsDragging(true);
     document.body.style.cursor = "ns-resize";
@@ -114,7 +111,7 @@ export function ComposerResizeZone() {
     >
       <View style={styles.grip}>
         <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 0 }]} />
-        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 5 }]} />
+        <View style={[styles.line, highlighted && styles.lineHighlighted, { top: 8 }]} />
       </View>
     </View>
   );
@@ -140,9 +137,9 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     left: 0,
     width: GRIP_WIDTH,
-    height: 2,
+    height: 1,
     borderRadius: 1,
-    backgroundColor: theme.colors.foregroundMuted,
+    backgroundColor: theme.colors.border,
     transform: [{ rotate: "-45deg" }],
   },
   lineHighlighted: {
