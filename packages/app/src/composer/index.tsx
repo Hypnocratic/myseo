@@ -108,6 +108,7 @@ import {
 import { resolveAgentControlsMode } from "@/composer/agent-controls/mode";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import { resolveActiveSendBehavior } from "./input/state";
+import { ComposerResizeZone } from "./input/composer-resize-zone";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
@@ -2359,6 +2360,7 @@ function ComposerContentImpl({
         isMessageInputFocused={isMessageInputFocused}
       />
       <View style={animatedStaticStyles.container}>
+        <ComposerResizeZone />
         <AttachmentLightbox source={lightboxSource} onClose={handleLightboxClose} />
         {/* Input area */}
         <View style={inputAreaContainerStyle}>

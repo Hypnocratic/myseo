@@ -55,6 +55,12 @@ import { isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
+import {
+  MIN_INPUT_HEIGHT,
+  applyUserCeiling,
+  resolveDefaultComposerMaxHeight,
+  useComposerCeilingStore,
+} from "./ceiling";
 import { useComposerHeight } from "./height";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
@@ -189,11 +195,6 @@ export interface MessageInputRef {
   getNativeElement?: () => HTMLElement | null;
 }
 
-const MIN_INPUT_HEIGHT_MOBILE = 30;
-const MIN_INPUT_HEIGHT_DESKTOP = 46;
-const DEFAULT_MAX_INPUT_HEIGHT = 160;
-const MAX_INPUT_VIEWPORT_RATIO = 0.5;
-const MIN_INPUT_HEIGHT = isWeb ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
 type WebTextInputKeyPressEvent = NativeSyntheticEvent<
   TextInputKeyPressEventData & {
     metaKey?: boolean;
@@ -983,11 +984,6 @@ function computeIsDictationStartEnabled(
   return (isReadyForDictation ?? isConnected) && !disabled;
 }
 
-function resolveMaxInputHeight(windowHeight: number): number {
-  if (!Number.isFinite(windowHeight) || windowHeight <= 0) return DEFAULT_MAX_INPUT_HEIGHT;
-  return Math.max(DEFAULT_MAX_INPUT_HEIGHT, Math.floor(windowHeight * MAX_INPUT_VIEWPORT_RATIO));
-}
-
 function isTextAreaLike(v: unknown): v is TextAreaHandle {
   return typeof v === "object" && v !== null && "scrollHeight" in v;
 }
@@ -1190,7 +1186,13 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const { t } = useTranslation();
     const isCompact = useIsCompactFormFactor();
     const { height: windowHeight } = useWindowDimensions();
-    const maxInputHeight = resolveMaxInputHeight(windowHeight);
+    const userCeiling = useComposerCeilingStore((state) => state.ceiling);
+    const maxInputHeight = applyUserCeiling({
+      defaultMax: resolveDefaultComposerMaxHeight(windowHeight),
+      userCeiling,
+      windowHeight,
+      minInputHeight: MIN_INPUT_HEIGHT,
+    });
     const buttonIconSize = isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
     const toast = useToast();
     const voice = useVoiceOptional();
