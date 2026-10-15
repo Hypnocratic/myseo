@@ -3,6 +3,7 @@ import { View, type PointerEvent as RNPointerEvent, useWindowDimensions } from "
 import { StyleSheet } from "react-native-unistyles";
 import {
   MIN_INPUT_HEIGHT,
+  composerRuntimeHeightRef,
   dragCeiling,
   resolveDefaultComposerMaxHeight,
   useComposerCeilingStore,
@@ -72,18 +73,16 @@ export function ComposerResizeZone() {
   const startDrag = useCallback((event: RNPointerEvent) => {
     const zoneElement = event.currentTarget as unknown as HTMLElement | null;
     const pointerId = event.nativeEvent.pointerId;
-    // Start from the composer's current visual height, not the stored ceiling:
+    // Start from the composer's realized style height, not the stored ceiling:
     // when the text fits below the ceiling the two differ, and starting from
     // the ceiling adds a dead band before the box visibly responds.
-    const cardHeight = zoneElement?.parentElement?.clientHeight ?? 0;
     dragStartRef.current = {
       pointerId,
       pointerY: event.nativeEvent.clientY,
       startCeiling:
-        cardHeight > 0
-          ? cardHeight
-          : (useComposerCeilingStore.getState().ceiling ??
-            resolveDefaultComposerMaxHeight(windowHeightRef.current)),
+        composerRuntimeHeightRef.current ??
+        useComposerCeilingStore.getState().ceiling ??
+        resolveDefaultComposerMaxHeight(windowHeightRef.current),
     };
     setIsDragging(true);
     document.body.style.cursor = "ns-resize";

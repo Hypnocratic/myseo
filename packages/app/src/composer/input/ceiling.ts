@@ -76,3 +76,10 @@ export const useComposerCeilingStore = create<ComposerCeilingState>()((set) => (
   ceiling: null,
   setCeiling: (ceiling) => set({ ceiling }),
 }));
+
+/**
+ * The composer's last realized style height, published by the input so the
+ * resize zone can start a drag from the height the layout is actually using.
+ * Plain mutable ref on purpose: read once per drag start, never rendered from.
+ */
+export const composerRuntimeHeightRef: { current: number | null } = { current: null };

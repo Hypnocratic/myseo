@@ -58,6 +58,7 @@ import { RenderProfile } from "@/utils/render-profiler";
 import {
   MIN_INPUT_HEIGHT,
   applyUserCeiling,
+  composerRuntimeHeightRef,
   resolveDefaultComposerMaxHeight,
   useComposerCeilingStore,
 } from "./ceiling";
@@ -1224,6 +1225,14 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const measuredComposerHeight = composerHeight.mode === "measured" ? composerHeight : undefined;
     const updateComposerHeightForText = measuredComposerHeight?.onTextChange;
     const resetComposerHeight = measuredComposerHeight?.reset;
+
+    // Publish the realized style height for the resize zone: a drag must start
+    // from the height the layout is actually using (the height-controlled text
+    // area), not from the card around it, or downsizing gets a dead band.
+    useLayoutEffect(() => {
+      const { height } = composerHeightStyle;
+      composerRuntimeHeightRef.current = typeof height === "number" ? height : null;
+    }, [composerHeightStyle]);
 
     const handleComposerLayout = useCallback(
       (event: LayoutChangeEvent) => onHeightChange?.(event.nativeEvent.layout.height),
