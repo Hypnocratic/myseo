@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { View, type PointerEvent as RNPointerEvent, useWindowDimensions } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import {
-  MIN_INPUT_HEIGHT,
-  composerRuntimeHeightRef,
+  composerRuntimeHeights,
   dragCeiling,
   resolveDefaultComposerMaxHeight,
   useComposerCeilingStore,
@@ -14,7 +13,7 @@ const ZONE_HEIGHT = 10;
 interface DragStart {
   pointerId: number;
   pointerY: number;
-  startCeiling: number;
+  startHeight: number;
 }
 
 /**
@@ -32,17 +31,23 @@ export function ComposerResizeZone() {
   useEffect(() => {
     if (!isDragging) return;
 
+    function stopListening() {
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    }
+
     function handlePointerMove(moveEvent: PointerEvent) {
       const dragStart = dragStartRef.current;
       if (!dragStart || moveEvent.pointerId !== dragStart.pointerId) return;
       moveEvent.preventDefault();
       useComposerCeilingStore.getState().setCeiling(
         dragCeiling({
-          startCeiling: dragStart.startCeiling,
+          startHeight: dragStart.startHeight,
           startY: dragStart.pointerY,
           currentY: moveEvent.clientY,
           windowHeight: windowHeightRef.current,
-          minInputHeight: MIN_INPUT_HEIGHT,
         }),
       );
     }
@@ -52,10 +57,7 @@ export function ComposerResizeZone() {
       if (!dragStart || upEvent.pointerId !== dragStart.pointerId) return;
       dragStartRef.current = null;
       setIsDragging(false);
-      document.body.style.cursor = "";
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
+      stopListening();
     }
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -63,24 +65,23 @@ export function ComposerResizeZone() {
     window.addEventListener("pointercancel", handlePointerUp);
     return () => {
       // Restore the cursor if the zone unmounts mid-drag (e.g. tab switch).
-      document.body.style.cursor = "";
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
+      stopListening();
     };
   }, [isDragging]);
 
   const startDrag = useCallback((event: RNPointerEvent) => {
-    const zoneElement = event.currentTarget as unknown as HTMLElement | null;
+    const target = event.currentTarget;
+    const zoneElement = target instanceof HTMLElement ? target : null;
     const pointerId = event.nativeEvent.pointerId;
-    // Start from the composer's realized style height, not the stored ceiling:
+    // Start from this composer's realized style height, not the stored ceiling:
     // when the text fits below the ceiling the two differ, and starting from
     // the ceiling adds a dead band before the box visibly responds.
+    const cardTextarea = zoneElement?.parentElement?.querySelector("textarea");
     dragStartRef.current = {
       pointerId,
       pointerY: event.nativeEvent.clientY,
-      startCeiling:
-        composerRuntimeHeightRef.current ??
+      startHeight:
+        (cardTextarea ? composerRuntimeHeights.get(cardTextarea) : undefined) ??
         useComposerCeilingStore.getState().ceiling ??
         resolveDefaultComposerMaxHeight(windowHeightRef.current),
     };
@@ -88,7 +89,7 @@ export function ComposerResizeZone() {
     document.body.style.cursor = "ns-resize";
     event.preventDefault();
     event.stopPropagation();
-    zoneElement?.setPointerCapture?.(pointerId);
+    zoneElement?.setPointerCapture(pointerId);
   }, []);
 
   return (

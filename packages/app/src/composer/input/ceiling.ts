@@ -6,8 +6,8 @@ const DEFAULT_MAX_VIEWPORT_RATIO = 0.5;
 // Upper drag bound: the composer may never cover more than this share of the window.
 const CEILING_VIEWPORT_RATIO = 0.8;
 
-export const MIN_INPUT_HEIGHT_MOBILE = 30;
-export const MIN_INPUT_HEIGHT_DESKTOP = 46;
+const MIN_INPUT_HEIGHT_MOBILE = 30;
+const MIN_INPUT_HEIGHT_DESKTOP = 46;
 export const MIN_INPUT_HEIGHT = isWeb ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
 
 function isValidWindowHeight(windowHeight: number): boolean {
@@ -24,41 +24,36 @@ function resolveCeilingViewportMax(windowHeight: number): number | null {
   return Math.floor(windowHeight * CEILING_VIEWPORT_RATIO);
 }
 
-export function clampCeiling(args: {
-  value: number;
-  windowHeight: number;
-  minInputHeight: number;
-}): number {
-  const { value, windowHeight, minInputHeight } = args;
+function clampCeiling(args: { value: number; windowHeight: number }): number {
+  const { value, windowHeight } = args;
   const viewportMax = resolveCeilingViewportMax(windowHeight);
-  const upperBound = viewportMax === null ? value : Math.max(viewportMax, minInputHeight);
-  return Math.min(Math.max(value, minInputHeight), upperBound);
+  const upperBound = viewportMax === null ? value : Math.max(viewportMax, MIN_INPUT_HEIGHT);
+  return Math.min(Math.max(value, MIN_INPUT_HEIGHT), upperBound);
 }
 
 export function applyUserCeiling(args: {
   defaultMax: number;
   userCeiling: number | null;
   windowHeight: number;
-  minInputHeight: number;
 }): number {
-  const { defaultMax, userCeiling, windowHeight, minInputHeight } = args;
+  const { defaultMax, userCeiling, windowHeight } = args;
   if (userCeiling === null) return defaultMax;
-  return clampCeiling({ value: userCeiling, windowHeight, minInputHeight });
+  return clampCeiling({ value: userCeiling, windowHeight });
 }
 
 export function dragCeiling(args: {
-  startCeiling: number;
+  startHeight: number;
   startY: number;
   currentY: number;
   windowHeight: number;
-  minInputHeight: number;
 }): number {
-  const { startCeiling, startY, currentY, windowHeight, minInputHeight } = args;
-  // Dragging up (currentY < startY) grows the ceiling.
+  const { startHeight, startY, currentY, windowHeight } = args;
+  // Dragging up (currentY < startY) grows the ceiling. `startHeight` is the
+  // composer's realized height when the drag began, so the box tracks the
+  // pointer from the first pixel instead of burning off headroom first.
   return clampCeiling({
-    value: startCeiling + (startY - currentY),
+    value: startHeight + (startY - currentY),
     windowHeight,
-    minInputHeight,
   });
 }
 
@@ -78,8 +73,8 @@ export const useComposerCeilingStore = create<ComposerCeilingState>()((set) => (
 }));
 
 /**
- * The composer's last realized style height, published by the input so the
- * resize zone can start a drag from the height the layout is actually using.
- * Plain mutable ref on purpose: read once per drag start, never rendered from.
+ * Realized style heights of mounted composers, keyed by their textarea element
+ * so each resize zone starts a drag from its own composer's height. Plain
+ * mutable map on purpose: read once per drag start, never rendered from.
  */
-export const composerRuntimeHeightRef: { current: number | null } = { current: null };
+export const composerRuntimeHeights = new WeakMap<object, number>();

@@ -2368,8 +2368,6 @@ function ComposerContentImpl({
             {sendErrorNode}
 
             <View ref={messageInputContainerRef} style={styles.messageInputContainer}>
-              {/* Drag zone anchored to the input card's top edge so the grip glyph
-                  sits in the card's top-right corner. */}
               <ComposerResizeZone />
               <ComposerAutocompleteBinding
                 text={textSource}

@@ -58,7 +58,7 @@ import { RenderProfile } from "@/utils/render-profiler";
 import {
   MIN_INPUT_HEIGHT,
   applyUserCeiling,
-  composerRuntimeHeightRef,
+  composerRuntimeHeights,
   resolveDefaultComposerMaxHeight,
   useComposerCeilingStore,
 } from "./ceiling";
@@ -1192,7 +1192,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       defaultMax: resolveDefaultComposerMaxHeight(windowHeight),
       userCeiling,
       windowHeight,
-      minInputHeight: MIN_INPUT_HEIGHT,
     });
     const buttonIconSize = isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
     const toast = useToast();
@@ -1228,10 +1227,14 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
     // Publish the realized style height for the resize zone: a drag must start
     // from the height the layout is actually using (the height-controlled text
-    // area), not from the card around it, or downsizing gets a dead band.
+    // area), not from the card around it, or downsizing gets a dead band. Keyed
+    // by this composer's textarea so mounted composers don't clobber each other.
     useLayoutEffect(() => {
       const { height } = composerHeightStyle;
-      composerRuntimeHeightRef.current = typeof height === "number" ? height : null;
+      const textarea = webTextareaRef.current;
+      if (typeof height === "number" && textarea) {
+        composerRuntimeHeights.set(textarea, height);
+      }
     }, [composerHeightStyle]);
 
     const handleComposerLayout = useCallback(
