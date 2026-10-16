@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, type PointerEvent as RNPointerEvent, useWindowDimensions } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import {
-  composerRuntimeHeights,
-  dragCeiling,
-  resolveDefaultComposerMaxHeight,
-  useComposerCeilingStore,
-} from "./ceiling";
+import { dragCeiling, resolveDefaultComposerMaxHeight, useComposerCeilingStore } from "./ceiling";
+import { readComposerRuntimeHeight } from "./composer-runtime-height";
 
 const ZONE_HEIGHT = 10;
 
@@ -76,12 +72,11 @@ export function ComposerResizeZone() {
     // Start from this composer's realized style height, not the stored ceiling:
     // when the text fits below the ceiling the two differ, and starting from
     // the ceiling adds a dead band before the box visibly responds.
-    const cardTextarea = zoneElement?.parentElement?.querySelector("textarea");
     dragStartRef.current = {
       pointerId,
       pointerY: event.nativeEvent.clientY,
       startHeight:
-        (cardTextarea ? composerRuntimeHeights.get(cardTextarea) : undefined) ??
+        readComposerRuntimeHeight(zoneElement?.parentElement ?? null) ??
         useComposerCeilingStore.getState().ceiling ??
         resolveDefaultComposerMaxHeight(windowHeightRef.current),
     };

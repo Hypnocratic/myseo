@@ -58,10 +58,10 @@ import { RenderProfile } from "@/utils/render-profiler";
 import {
   MIN_INPUT_HEIGHT,
   applyUserCeiling,
-  composerRuntimeHeights,
   resolveDefaultComposerMaxHeight,
   useComposerCeilingStore,
 } from "./ceiling";
+import { publishComposerRuntimeHeight } from "./composer-runtime-height";
 import { useComposerHeight } from "./height";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
@@ -1225,18 +1225,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const updateComposerHeightForText = measuredComposerHeight?.onTextChange;
     const resetComposerHeight = measuredComposerHeight?.reset;
 
-    // Publish the realized style height for the resize zone: a drag must start
-    // from the height the layout is actually using (the height-controlled text
-    // area), not from the card around it, or downsizing gets a dead band. Keyed
-    // by this composer's textarea so mounted composers don't clobber each other.
-    useLayoutEffect(() => {
-      const { height } = composerHeightStyle;
-      const textarea = webTextareaRef.current;
-      if (typeof height === "number" && textarea) {
-        composerRuntimeHeights.set(textarea, height);
-      }
-    }, [composerHeightStyle]);
-
     const handleComposerLayout = useCallback(
       (event: LayoutChangeEvent) => onHeightChange?.(event.nativeEvent.layout.height),
       [onHeightChange],
@@ -1587,6 +1575,18 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         webTextareaRef.current = getWebTextArea() as HTMLElement | null;
       }
     }, [getWebTextArea]);
+
+    // Publish the realized style height for the resize zone: a drag must start
+    // from the height the layout is actually using (the height-controlled text
+    // area), not from the card around it, or downsizing gets a dead band.
+    // Resolves the textarea directly instead of reading webTextareaRef so this
+    // effect's position relative to the ref-assignment effect never matters.
+    useLayoutEffect(() => {
+      publishComposerRuntimeHeight({
+        textarea: getWebTextArea() as HTMLElement | null,
+        height: composerHeightStyle.height,
+      });
+    }, [composerHeightStyle, getWebTextArea]);
 
     usePasteImagesEffect({
       getWebTextArea,

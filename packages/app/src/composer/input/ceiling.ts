@@ -71,10 +71,3 @@ export const useComposerCeilingStore = create<ComposerCeilingState>()((set) => (
   ceiling: null,
   setCeiling: (ceiling) => set({ ceiling }),
 }));
-
-/**
- * Realized style heights of mounted composers, keyed by their textarea element
- * so each resize zone starts a drag from its own composer's height. Plain
- * mutable map on purpose: read once per drag start, never rendered from.
- */
-export const composerRuntimeHeights = new WeakMap<object, number>();
