@@ -41,6 +41,7 @@ import {
   setupDefaultContextMenu,
   setupDragDropPrevention,
   buildStandardContextMenuItems,
+  type WindowTheme,
 } from "./window/window-manager.js";
 import { setupDarwinCompositorWatchdog } from "./window/compositor-watchdog/index.js";
 import { resolveDesktopWindowChromeMode, windowChromeModeArgument } from "./window/chrome.js";
@@ -86,7 +87,17 @@ import {
   type OwnedDesktopWindow,
 } from "./window/desktop-window-owner.js";
 import { getDesktopSettingsStore } from "./settings/desktop-settings-electron.js";
-import { clampWindowStateToWorkAreas, createWindowStateStore } from "./settings/window-state.js";
+import {
+  buildRemoteUiUrl,
+  isAllowedRemoteUiNavigation,
+  resolveRemoteUiConfig,
+  type RemoteUiConfig,
+} from "./remote-ui.js";
+import {
+  clampWindowStateToWorkAreas,
+  createWindowStateStore,
+  type WindowState,
+} from "./settings/window-state.js";
 import {
   isDesktopManagedDaemonRunningSync,
   stopDesktopDaemonViaCli,
@@ -117,6 +128,9 @@ const DESKTOP_WINDOW_CHROME_MODE = resolveDesktopWindowChromeMode({
   override: process.env.PASEO_DESKTOP_WINDOW_CONTROLS,
   isPackaged: app.isPackaged,
 });
+// Resolved in bootstrap() from desktop settings (or the env override) before
+// the first window is created; createWindow() and agent-link delivery read it.
+let remoteUi: RemoteUiConfig | null = null;
 const UPDATE_QUIT_DEADLINE_MS = 5_000;
 const pendingBrowserWindowOpenRequests = new PendingBrowserWindowOpenRequests();
 const agentNavigationInbox = new AgentNavigationInbox();
@@ -577,6 +591,130 @@ protocol.registerSchemesAsPrivileged([
 // Window creation
 // ---------------------------------------------------------------------------
 
+/**
+ * Build the main-window BrowserWindow. Remote UI gets the native window frame:
+ * the custom chrome's drag region and window controls are drawn by the bundled
+ * UI, which the daemon-served page does not render (docs/desktop-remote-ui.md).
+ */
+function createMainWindow(input: {
+  title: string;
+  systemTheme: WindowTheme;
+  iconPath: string | null;
+  restoredWindowState: WindowState | null;
+}): BrowserWindow {
+  const chromeOptions = remoteUi
+    ? { frame: true, autoHideMenuBar: true }
+    : getMainWindowChromeOptions({ mode: DESKTOP_WINDOW_CHROME_MODE });
+  const additionalArguments = [
+    windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE),
+    // The desktop preload only exposes its bridge to the bundled app origin;
+    // in development the Metro server plays that role. See preload.ts.
+    ...(app.isPackaged ? [] : [`--paseo-bridge-origin=${new URL(DEV_SERVER_URL).origin}`]),
+  ];
+  const win = new BrowserWindow({
+    title: input.title,
+    ...resolveWindowBounds(input.restoredWindowState),
+    show: false,
+    backgroundColor: getWindowBackgroundColor(input.systemTheme),
+    ...(input.iconPath ? { icon: input.iconPath } : {}),
+    ...chromeOptions,
+    webPreferences: {
+      preload: getPreloadPath(),
+      additionalArguments,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
+    },
+  });
+  if (!remoteUi) {
+    applyDesktopWindowChromeMode({
+      win,
+      mode: DESKTOP_WINDOW_CHROME_MODE,
+    });
+  }
+  return win;
+}
+
+/**
+ * Embedded-browser plumbing for a window: sandbox every webview attach down to
+ * the guest keyboard preload, and wire each attached webview into the popup,
+ * context-menu, and navigation-guard machinery.
+ */
+function attachBrowserWebviewGuards(win: BrowserWindow): void {
+  win.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+    if (!isPaseoBrowserWebviewAttach(params)) {
+      event.preventDefault();
+      return;
+    }
+    webPreferences.nodeIntegration = false;
+    // The sandboxed keyboard preload must run in every frame so focused iframes keep
+    // the same page-first shortcut boundary. Node integration remains disabled.
+    webPreferences.nodeIntegrationInSubFrames = true;
+    webPreferences.nodeIntegrationInWorker = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.webSecurity = true;
+    webPreferences.webviewTag = false;
+    webPreferences.allowRunningInsecureContent = false;
+    delete webPreferences.preload;
+    delete params.preload;
+    delete (webPreferences as { preloadURL?: string }).preloadURL;
+    delete (params as { preloadURL?: string }).preloadURL;
+    webPreferences.preload = getBrowserKeyboardPreloadPath();
+  });
+  win.webContents.on("did-attach-webview", (_event, contents) => {
+    preparePaseoBrowserWebContents(contents);
+    contents.once("destroyed", () => {
+      pendingBrowserWindowOpenRequests.delete(contents.id);
+    });
+    installBrowserWindowOpenHandler({
+      contents,
+      sourceContents: contents,
+      mainWindow: win,
+    });
+    contents.on("context-menu", (_contextMenuEvent, params) => {
+      showBrowserWebviewContextMenu(win, contents, params);
+    });
+    registerBrowserWebviewNavigationGuards(contents);
+  });
+}
+
+/**
+ * Remote-UI wiring for a window: pin main-frame navigation to the daemon origin
+ * and fall back to the bundled UI when the daemon can't be reached. Returns the
+ * URL to load for the window's initial route.
+ */
+function setupRemoteUiWindow(input: {
+  win: BrowserWindow;
+  remoteUrl: string;
+  initialRoute?: string | null;
+}): string {
+  const { win, remoteUrl, initialRoute } = input;
+  win.webContents.on("will-navigate", (event, url) => {
+    if (isAllowedRemoteUiNavigation(remoteUrl, url)) {
+      return;
+    }
+    log.warn("[remote-ui] blocked navigation away from the daemon origin", { url });
+    event.preventDefault();
+  });
+  let fellBackToBundledUi = false;
+  win.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
+    if (!isMainFrame || fellBackToBundledUi || win.isDestroyed()) {
+      return;
+    }
+    fellBackToBundledUi = true;
+    log.error("[remote-ui] daemon UI failed to load; falling back to the bundled UI", {
+      code,
+      description,
+      url,
+    });
+    void win.webContents.loadURL(`${APP_SCHEME}://app${initialRoute ?? "/"}`).catch((error) => {
+      log.error("[remote-ui] bundled UI fallback failed", error);
+    });
+  });
+  return buildRemoteUiUrl(remoteUrl, initialRoute);
+}
+
 function getPreloadPath(): string {
   return path.join(__dirname, "preload.js");
 }
@@ -701,27 +839,7 @@ async function createWindow(
     : null;
 
   const title = devWorktreeName ? `${APP_NAME} (${devWorktreeName})` : APP_NAME;
-  const mainWindow = new BrowserWindow({
-    title,
-    ...resolveWindowBounds(restoredWindowState),
-    show: false,
-    backgroundColor: getWindowBackgroundColor(systemTheme),
-    ...(iconPath ? { icon: iconPath } : {}),
-    ...getMainWindowChromeOptions({
-      mode: DESKTOP_WINDOW_CHROME_MODE,
-    }),
-    webPreferences: {
-      preload: getPreloadPath(),
-      additionalArguments: [windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE)],
-      contextIsolation: true,
-      nodeIntegration: false,
-      webviewTag: true,
-    },
-  });
-  applyDesktopWindowChromeMode({
-    win: mainWindow,
-    mode: DESKTOP_WINDOW_CHROME_MODE,
-  });
+  const mainWindow = createMainWindow({ title, systemTheme, iconPath, restoredWindowState });
 
   const webContentsId = mainWindow.webContents.id;
   options.onCreated?.(webContentsId);
@@ -752,46 +870,23 @@ async function createWindow(
   }
   setupDefaultContextMenu(mainWindow);
   setupDragDropPrevention(mainWindow);
-  mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
-    if (!isPaseoBrowserWebviewAttach(params)) {
-      event.preventDefault();
-      return;
-    }
-    webPreferences.nodeIntegration = false;
-    // The sandboxed keyboard preload must run in every frame so focused iframes keep
-    // the same page-first shortcut boundary. Node integration remains disabled.
-    webPreferences.nodeIntegrationInSubFrames = true;
-    webPreferences.nodeIntegrationInWorker = false;
-    webPreferences.contextIsolation = true;
-    webPreferences.sandbox = true;
-    webPreferences.webSecurity = true;
-    webPreferences.webviewTag = false;
-    webPreferences.allowRunningInsecureContent = false;
-    delete webPreferences.preload;
-    delete params.preload;
-    delete (webPreferences as { preloadURL?: string }).preloadURL;
-    delete (params as { preloadURL?: string }).preloadURL;
-    webPreferences.preload = getBrowserKeyboardPreloadPath();
-  });
-  mainWindow.webContents.on("did-attach-webview", (_event, contents) => {
-    preparePaseoBrowserWebContents(contents);
-    contents.once("destroyed", () => {
-      pendingBrowserWindowOpenRequests.delete(contents.id);
-    });
-    installBrowserWindowOpenHandler({
-      contents,
-      sourceContents: contents,
-      mainWindow,
-    });
-    contents.on("context-menu", (_contextMenuEvent, params) => {
-      showBrowserWebviewContextMenu(mainWindow, contents, params);
-    });
-    registerBrowserWebviewNavigationGuards(contents);
-  });
+  attachBrowserWebviewGuards(mainWindow);
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
   });
+
+  const activeRemoteUi = remoteUi;
+  if (activeRemoteUi) {
+    await mainWindow.loadURL(
+      setupRemoteUiWindow({
+        win: mainWindow,
+        remoteUrl: activeRemoteUi.url,
+        initialRoute: options.initialRoute,
+      }),
+    );
+    return mainWindow;
+  }
 
   if (!app.isPackaged) {
     const { loadReactDevTools } = await import("./features/react-devtools.js");
@@ -837,8 +932,21 @@ desktopWindowOwner = createDesktopWindowOwner<AgentDeepLinkTarget>({
     return ownedDesktopWindow(win);
   },
   agentRoute: buildAgentDeepLinkRoute,
-  deliverAgent: (webContentsId, target) =>
-    agentNavigationInbox.deliverOrQueue(webContentsId, target),
+  deliverAgent: (webContentsId, target) => {
+    const activeRemoteUi = remoteUi;
+    if (activeRemoteUi) {
+      // The served UI has no preload bridge to receive paseo:event:open-agent,
+      // so deep links navigate the window to the agent route instead.
+      const win = BrowserWindow.fromId(webContentsId);
+      if (win && !win.isDestroyed()) {
+        void win
+          .loadURL(buildRemoteUiUrl(activeRemoteUi.url, buildAgentDeepLinkRoute(target)))
+          .catch((error) => log.error("[remote-ui] failed to navigate to agent link", error));
+      }
+      return null;
+    }
+    return agentNavigationInbox.deliverOrQueue(webContentsId, target);
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -944,6 +1052,15 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.whenReady();
+
+  const desktopSettings = await getDesktopSettingsStore().get();
+  remoteUi = resolveRemoteUiConfig({
+    settingUrl: desktopSettings.ui.remoteUrl,
+    envUrl: process.env.PASEO_DESKTOP_REMOTE_UI_URL,
+  });
+  if (remoteUi) {
+    log.info("[remote-ui] enabled; window loads the daemon-served UI", { url: remoteUi.url });
+  }
 
   const appDistDir = getAppDistDir();
   protocol.handle(APP_SCHEME, (request) => {

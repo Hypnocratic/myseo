@@ -87,6 +87,7 @@ describe("desktop-settings", () => {
         manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,
       },
+      ui: { remoteUrl: "" },
     });
   });
 
@@ -99,6 +100,7 @@ describe("desktop-settings", () => {
     const next = await store.patch({
       releaseChannel: "beta",
       daemon: { keepRunningAfterQuit: false },
+      ui: { remoteUrl: "http://100.64.10.10:6767 " },
     });
     const files = await readdir(userDataPath);
 
@@ -110,6 +112,7 @@ describe("desktop-settings", () => {
         manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,
       },
+      ui: { remoteUrl: "http://100.64.10.10:6767" },
     });
     expect(files).toEqual(["desktop-settings.json"]);
   });
@@ -277,6 +280,7 @@ describe("desktop-settings", () => {
         manageBuiltInDaemon: false,
         keepRunningAfterQuit: false,
       },
+      ui: { remoteUrl: "" },
     });
     expect(ignoredSecondMigration).toEqual(migrated);
   });
@@ -319,6 +323,7 @@ describe("desktop-settings", () => {
       releaseChannel: "beta",
       notifications: { playSound: false },
       daemon: { manageBuiltInDaemon: true, keepRunningAfterQuit: false },
+      ui: { remoteUrl: "" },
     });
   });
 

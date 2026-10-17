@@ -15,12 +15,17 @@ export interface DesktopSettings {
     manageBuiltInDaemon: boolean;
     keepRunningAfterQuit: boolean;
   };
+  ui: {
+    /** Daemon-served web UI base URL. Empty string loads the bundled UI. */
+    remoteUrl: string;
+  };
 }
 
 interface DesktopSettingsPatch {
   releaseChannel?: AppReleaseChannel;
   notifications?: Partial<DesktopSettings["notifications"]>;
   daemon?: Partial<DesktopSettings["daemon"]>;
+  ui?: Partial<DesktopSettings["ui"]>;
 }
 
 export interface DesktopSettingsStore {
@@ -37,6 +42,9 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   daemon: {
     manageBuiltInDaemon: false,
     keepRunningAfterQuit: false,
+  },
+  ui: {
+    remoteUrl: "",
   },
 };
 
@@ -57,11 +65,18 @@ const DaemonSchema = z
   })
   .catch(() => ({ ...DEFAULT_DESKTOP_SETTINGS.daemon }));
 
+const UiSchema = z
+  .looseObject({
+    remoteUrl: z.string().catch(DEFAULT_DESKTOP_SETTINGS.ui.remoteUrl),
+  })
+  .catch(() => ({ ...DEFAULT_DESKTOP_SETTINGS.ui }));
+
 const DesktopSettingsSchema = z
   .looseObject({
     releaseChannel: ReleaseChannelSchema.catch(DEFAULT_DESKTOP_SETTINGS.releaseChannel),
     notifications: NotificationsSchema,
     daemon: DaemonSchema,
+    ui: UiSchema,
   })
   .catch(() => buildDefaultSettings());
 
@@ -108,6 +123,7 @@ function buildDefaultSettings(): StoredDesktopSettings {
     releaseChannel: DEFAULT_DESKTOP_SETTINGS.releaseChannel,
     notifications: { ...DEFAULT_DESKTOP_SETTINGS.notifications },
     daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon },
+    ui: { ...DEFAULT_DESKTOP_SETTINGS.ui },
   };
 }
 
@@ -129,6 +145,9 @@ function toDesktopSettings(stored: StoredDesktopSettings): DesktopSettings {
     daemon: {
       manageBuiltInDaemon: stored.daemon.manageBuiltInDaemon,
       keepRunningAfterQuit: stored.daemon.keepRunningAfterQuit,
+    },
+    ui: {
+      remoteUrl: stored.ui.remoteUrl,
     },
   };
 }
@@ -166,6 +185,13 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
     }
   }
 
+  if (isRecord(input.ui)) {
+    const remoteUrl = input.ui.remoteUrl;
+    if (typeof remoteUrl === "string") {
+      patch.ui = { remoteUrl: remoteUrl.trim() };
+    }
+  }
+
   return patch;
 }
 
@@ -199,6 +225,7 @@ function mergeDesktopSettings(
     releaseChannel: patch.releaseChannel ?? current.releaseChannel,
     notifications: { ...current.notifications, ...patch.notifications },
     daemon: { ...current.daemon, ...patch.daemon },
+    ui: { ...current.ui, ...patch.ui },
   };
 }
 
