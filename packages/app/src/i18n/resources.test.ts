@@ -311,8 +311,9 @@ describe("translation resources", () => {
   });
 
   it("includes composer and agent workflow keys for the Batch 2 migration", () => {
+    // Temporary deploy-loop marker string; see the marker commit on dev.
     expect(en.composer.placeholders.desktop).toBe(
-      "Message the agent, tag @files, or use /commands and /skills",
+      "This is a test placeholder, if you see this then then success.",
     );
     expect(en.composer.input.addAttachment).toBe("Add attachment");
     expect(en.composer.input.sendMessage).toBe("Send message");

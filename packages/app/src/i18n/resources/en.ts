@@ -111,9 +111,9 @@ export const en = {
   },
   composer: {
     placeholders: {
-      desktop: "Message the agent, tag @files, or use /commands and /skills",
+      desktop: "This is a test placeholder, if you see this then then success.",
       mobile: "Message, @files, /commands",
-      fallback: "Message...",
+      fallback: "This is a test placeholder, if you see this then then success.",
       terminal: "Prompt",
     },
     input: {
