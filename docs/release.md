@@ -496,6 +496,19 @@ gh release edit "$RELEASE_LOOKUP" --tag vX.Y.Z-beta.N --draft=false --prerelease
 This bypasses the updater-manifest guarantee. Use it only when the release is
 intentionally unavailable to desktop updater clients.
 
+## Desktop auto-update feed
+
+electron-builder derives the desktop update feed from the `repository` field —
+there is no `publish` config to override it. Keep the field (root and
+`packages/desktop`) pointed at this fork. When it pointed at upstream
+`getpaseo/paseo`, installed Myseo builds silently downloaded upstream Paseo
+releases and installed them over the fork on quit (fixed 2026-10, `cbb6572c3`).
+
+The fork publishes no desktop releases yet, so the updater is inert: a
+failed update check in the desktop log means it found nothing to install, not
+that anything is broken. Cutting releases with this playbook is what turns
+self-update back on.
+
 ## Notes
 
 - `version:all:*` bumps root + syncs workspace versions and `@getpaseo/*` dependency versions
